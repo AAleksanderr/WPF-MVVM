@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Task2.Models
 {
-    public class DiagramUserData
+    public class UserData
     {
         public int[] Rank { get; set; }
         public string User { get; set; }

@@ -1,89 +1,141 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Shapes;
 using Newtonsoft.Json;
+using Task2.Annotations;
 using Task2.Models;
 
 namespace Task2.ViewModels
 {
-    public class MainWindowViewModel
+    public class MainWindowViewModel : INotifyPropertyChanged
     {
         private const int Days = 30;
-        private bool _sortedByName;
+        private readonly string _dataPath = "data/";
+        private readonly string _savedDataPath = "data/SavedData/";
+        private string _alertMessage;
+        private Visibility _alertVisibility;
+        private UserInterfaceData _selectedUser;
         private bool _sortedByAverage;
         private bool _sortedByMax;
         private bool _sortedByMin;
+        private bool _sortedByName;
 
         public MainWindowViewModel()
         {
+            _alertVisibility = Visibility.Collapsed;
             LoadData();
             CreateListBoxUsersData();
         }
 
 
-        public ObservableCollection<ListBoxUserData> ListBoxUsersDatas { get; set; } =
-            new ObservableCollection<ListBoxUserData>();
+        private List<UserData> UsersData { get; set; } = new List<UserData>();
 
-        public List<DiagramUserData> DiagramUsersDatas { get; set; } = new List<DiagramUserData>();
-        public ObservableCollection<Shape> CanvasElements { get; set; } = new ObservableCollection<Shape>();
-        public bool[] IsSelected { get; set; } = new bool[Days];
 
-        public ICommand DrawSelectedCommand => new Command(DrawCommand);
+        public ObservableCollection<UserInterfaceData> ListBoxUsersDatas { get; set; } =
+            new ObservableCollection<UserInterfaceData>();
+
+        public UserInterfaceData SelectedUser
+        {
+            get => _selectedUser;
+            set
+            {
+                _selectedUser = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public Visibility AlertVisibility
+        {
+            get => _alertVisibility;
+            set
+            {
+                _alertVisibility = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string AlertMessage
+        {
+            get => _alertMessage;
+            set
+            {
+                _alertMessage = value;
+                OnPropertyChanged();
+            }
+        }
+
         public ICommand NameCommand => new Command(com => SortByName());
         public ICommand AverageCommand => new Command(com => SortByAverage());
         public ICommand MaxCommand => new Command(com => SortByMax());
         public ICommand MinCommand => new Command(com => SortByMin());
+        public ICommand SaveSelected => new Command(com => SaveSlectedToFile());
 
+        public event PropertyChangedEventHandler PropertyChanged;
 
         private void LoadData()
         {
             for (var i = 1; i <= Days; i++)
             {
                 var items = new List<Customer>();
-                var path = $"data/day{i}.json";
+                var path = $"{_dataPath}day{i}.json";
                 if (File.Exists(path))
+                {
                     using (var r = new StreamReader(path))
                     {
                         var json = r.ReadToEnd();
-                        items = JsonConvert.DeserializeObject<List<Customer>>(json);
+                        try
+                        {
+                            items = JsonConvert.DeserializeObject<List<Customer>>(json);
+                        }
+                        catch (Exception)
+                        {
+                            AlertMessage = "Some data files are missing or corrupted.";
+                            AlertVisibility = Visibility.Visible;
+                        }
                     }
+                }
+                else
+                {
+                    AlertMessage = "Some data files are missing or corrupted.";
+                    AlertVisibility = Visibility.Visible;
+                }
 
                 foreach (var customer in items)
-                    if (DiagramUsersDatas.Select(t => t.User).Contains(customer.User))
+                    if (UsersData.Select(t => t.User).Contains(customer.User))
                     {
-                        var currentUser = DiagramUsersDatas.Find(u => u.User == customer.User);
+                        var currentUser = UsersData.Find(u => u.User == customer.User);
                         currentUser.Steps[i - 1] = customer.Steps;
                         currentUser.Rank[i - 1] = customer.Rank;
                         currentUser.Status[i - 1] = customer.Status;
                     }
                     else
                     {
-                        DiagramUsersDatas.Add(new DiagramUserData
+                        UsersData.Add(new UserData
                         {
                             User = customer.User,
                             Steps = new int[Days],
                             Rank = new int[Days],
                             Status = new string[Days]
                         });
-                        DiagramUsersDatas.Last().Steps[i - 1] = customer.Steps;
-                        DiagramUsersDatas.Last().Rank[i - 1] = customer.Rank;
-                        DiagramUsersDatas.Last().Status[i - 1] = customer.Status;
+                        UsersData.Last().Steps[i - 1] = customer.Steps;
+                        UsersData.Last().Rank[i - 1] = customer.Rank;
+                        UsersData.Last().Status[i - 1] = customer.Status;
                     }
             }
 
-            DiagramUsersDatas = DiagramUsersDatas.OrderBy(i => i.User).ToList();
+            UsersData = UsersData.OrderBy(i => i.User).ToList();
         }
 
         private void CreateListBoxUsersData()
         {
-            foreach (var usersData in DiagramUsersDatas)
+            foreach (var usersData in UsersData)
             {
                 SolidColorBrush solidColorBrush;
                 var userAverageSteps = usersData.Steps.Sum() / Days;
@@ -96,75 +148,89 @@ namespace Task2.ViewModels
                     solidColorBrush = new SolidColorBrush(Colors.AliceBlue);
                 else solidColorBrush = new SolidColorBrush(Colors.BlanchedAlmond);
 
-                var user = new ListBoxUserData
+                var user = new UserInterfaceData
                 {
                     AverageSteps = userAverageSteps,
                     MaxSteps = maxSteps,
                     MinSteps = minSteps,
                     Name = usersData.User,
-                    LBItemColor = solidColorBrush,
+                    ItemColor = solidColorBrush,
                     Points = points
                 };
                 ListBoxUsersDatas.Add(user);
             }
         }
 
-        private void DrawCommand(object obj)
+        private void SaveSlectedToFile()
         {
-            CanvasElements.Clear();
-            foreach (var item in (IEnumerable) obj)
+            var path = $"{_savedDataPath}{_selectedUser.Name}.json";
+            var userToSaveData = UsersData.Find(i => i.User == _selectedUser.Name);
+            try
             {
-                var selected = (ListBoxUserData) item;
-                var polyLine = new Polyline
+                Directory.CreateDirectory(_savedDataPath);
+                using (var w = new StreamWriter(path))
                 {
-                    Margin = new Thickness {Left = 57, Top = 68},
-                    Stroke = Brushes.Black,
-                    StrokeThickness = 2,
-                    Points = selected.Points
-                };
-                CanvasElements.Add(polyLine);
+                    var json = JsonConvert.SerializeObject(userToSaveData);
+                    w.Write(json);
+                }
+
+                AlertVisibility = Visibility.Collapsed;
+            }
+            catch (Exception)
+            {
+                AlertMessage = "Data not saved";
+                AlertVisibility = Visibility.Visible;
             }
         }
 
         private void SortByName()
         {
             var obsCollection = _sortedByName
-                ? new ObservableCollection<ListBoxUserData>(ListBoxUsersDatas.OrderBy(i => i.Name))
-                : new ObservableCollection<ListBoxUserData>(ListBoxUsersDatas.OrderByDescending(i => i.Name));
+                ? new ObservableCollection<UserInterfaceData>(ListBoxUsersDatas.OrderBy(i => i.Name))
+                : new ObservableCollection<UserInterfaceData>(ListBoxUsersDatas.OrderByDescending(i => i.Name));
             ListBoxUsersDatas.Clear();
             foreach (var listBoxUserData in obsCollection)
                 ListBoxUsersDatas.Add(listBoxUserData);
             _sortedByName = !_sortedByName;
         }
+
         private void SortByAverage()
         {
             var obsCollection = _sortedByAverage
-                ? new ObservableCollection<ListBoxUserData>(ListBoxUsersDatas.OrderBy(i => i.AverageSteps))
-                : new ObservableCollection<ListBoxUserData>(ListBoxUsersDatas.OrderByDescending(i => i.AverageSteps));
+                ? new ObservableCollection<UserInterfaceData>(ListBoxUsersDatas.OrderBy(i => i.AverageSteps))
+                : new ObservableCollection<UserInterfaceData>(ListBoxUsersDatas.OrderByDescending(i => i.AverageSteps));
             ListBoxUsersDatas.Clear();
             foreach (var listBoxUserData in obsCollection)
                 ListBoxUsersDatas.Add(listBoxUserData);
             _sortedByAverage = !_sortedByAverage;
         }
+
         private void SortByMax()
         {
             var obsCollection = _sortedByMax
-                ? new ObservableCollection<ListBoxUserData>(ListBoxUsersDatas.OrderBy(i => i.MaxSteps))
-                : new ObservableCollection<ListBoxUserData>(ListBoxUsersDatas.OrderByDescending(i => i.MaxSteps));
+                ? new ObservableCollection<UserInterfaceData>(ListBoxUsersDatas.OrderBy(i => i.MaxSteps))
+                : new ObservableCollection<UserInterfaceData>(ListBoxUsersDatas.OrderByDescending(i => i.MaxSteps));
             ListBoxUsersDatas.Clear();
             foreach (var listBoxUserData in obsCollection)
                 ListBoxUsersDatas.Add(listBoxUserData);
             _sortedByMax = !_sortedByMax;
         }
+
         private void SortByMin()
         {
             var obsCollection = _sortedByMin
-                ? new ObservableCollection<ListBoxUserData>(ListBoxUsersDatas.OrderBy(i => i.MinSteps))
-                : new ObservableCollection<ListBoxUserData>(ListBoxUsersDatas.OrderByDescending(i => i.MinSteps));
+                ? new ObservableCollection<UserInterfaceData>(ListBoxUsersDatas.OrderBy(i => i.MinSteps))
+                : new ObservableCollection<UserInterfaceData>(ListBoxUsersDatas.OrderByDescending(i => i.MinSteps));
             ListBoxUsersDatas.Clear();
             foreach (var listBoxUserData in obsCollection)
                 ListBoxUsersDatas.Add(listBoxUserData);
             _sortedByMin = !_sortedByMin;
+        }
+
+        [NotifyPropertyChangedInvocator]
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
         private class Command : ICommand

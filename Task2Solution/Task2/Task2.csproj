@@ -66,8 +66,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Models\Customer.cs" />
-    <Compile Include="Models\DiagramUserData.cs" />
-    <Compile Include="Models\ListBoxUserData.cs" />
+    <Compile Include="Models\UserData.cs" />
+    <Compile Include="Models\UserInterfaceData.cs" />
+    <Compile Include="Properties\Annotations.cs" />
     <Compile Include="ViewModels\MainWindowViewModel.cs" />
     <Compile Include="Views\MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>

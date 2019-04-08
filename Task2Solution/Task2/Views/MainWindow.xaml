@@ -3,7 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Task2"
         xmlns:vm="clr-namespace:Task2.ViewModels"
         mc:Ignorable="d"
         Title="MainWindow" Height="500" Width="1010" ResizeMode="NoResize">
@@ -28,19 +27,21 @@
                     <ColumnDefinition Width="90" />
                 </Grid.ColumnDefinitions>
                 <Button Command="{Binding NameCommand}">Name</Button>
-                <Button Command="{Binding AverageCommand}" Grid.Column="1" >Average</Button>
-                <Button Command="{Binding MaxCommand}" Grid.Column="2" >Max</Button>
-                <Button Command="{Binding MinCommand}" Grid.Column="3" >Min</Button>
+                <Button Command="{Binding AverageCommand}" Grid.Column="1">Average</Button>
+                <Button Command="{Binding MaxCommand}" Grid.Column="2">Max</Button>
+                <Button Command="{Binding MinCommand}" Grid.Column="3">Min</Button>
             </Grid>
-            <ListBox x:Name="ListBox" ItemsSource="{Binding ListBoxUsersDatas}" Grid.Row="1">
-                <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
-                        <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
-                    </Style>
-                </ListBox.ItemContainerStyle>
+            <ListBox x:Name="ListBox" ItemsSource="{Binding ListBoxUsersDatas}"
+                     SelectedItem="{Binding SelectedUser, Mode=TwoWay}" Grid.Row="1">
+                <ListBox.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Save selected" Command="{Binding SaveSelected}" />
+                    </ContextMenu>
+                </ListBox.ContextMenu>
+
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <Grid Background="{Binding LBItemColor}">
+                        <Grid Background="{Binding ItemColor}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="160" />
                                 <ColumnDefinition Width="50" />
@@ -58,16 +59,13 @@
             </ListBox>
         </Grid>
         <Canvas Grid.Column="1">
-            <Rectangle Width="600" Height="428" Fill="LightGray" Margin="13,25" />
+            <Rectangle Width="600" Height="443" Fill="LightGray" Margin="13,10" />
+            <TextBlock Visibility="{Binding AlertVisibility}" Margin="350,70" Background="Salmon"
+                       Padding="3" Text="{Binding AlertMessage}" />
             <Line X1="70" Y1="60" X2="70" Y2="420" StrokeThickness="5" Stroke="Gray" />
             <Line X1="50" Y1="400" X2="580" Y2="400" StrokeThickness="5" Stroke="Gray" />
             <Polygon Fill="Gray" Points="65, 60, 70, 45, 75, 60" />
             <Polygon Fill="Gray" Points="580, 395, 595, 400, 580, 405" />
-            <Button Margin="270,50" Height="30" Width="100"
-                    Command="{Binding DrawSelectedCommand}"
-                    CommandParameter="{Binding ElementName=ListBox, Path=SelectedItems}">
-                Draw Selected
-            </Button>
             <TextBlock Margin="320, 410">Day</TextBlock>
             <TextBlock Margin="50, 410">0</TextBlock>
             <TextBlock Margin="30, 210">Steps</TextBlock>
@@ -75,7 +73,8 @@
             <Line X1="63" Y1="79" X2="77" Y2="79" StrokeThickness="2" Stroke="Gray" />
             <TextBlock Margin="500, 410">30</TextBlock>
             <Line X1="507" Y1="393" X2="507" Y2="407" StrokeThickness="2" Stroke="Gray" />
-            <ItemsControl ItemsSource="{Binding CanvasElements}" />
+            <Polyline x:Name="Polyline" Margin="57,68" Stroke="Black" StrokeThickness="2"
+                      Points="{Binding SelectedUser.Points}" />
         </Canvas>
     </Grid>
 </Window>
